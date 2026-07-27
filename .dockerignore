@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+.git
+.gitignore
+**/.env
+!**/.env.example
+Dockerfile*
+docker-compose*.yml
+*.md
+.pnpm-store
+coverage
+dist
+**/dist

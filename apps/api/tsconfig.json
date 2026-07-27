@@ -1,0 +1,12 @@
+{
+  "extends": "@keynotes/config/typescript/node.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

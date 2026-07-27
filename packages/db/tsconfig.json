@@ -1,0 +1,10 @@
+{
+  "extends": "@keynotes/config/typescript/node.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["drizzle.config.ts", "drizzle"]
+}
