@@ -1,0 +1,26 @@
+# Local-development only overrides.
+#
+# `docker compose up` automatically merges this file on top of
+# docker-compose.yml when run from a plain shell (no `-f` flags), so local
+# dev keeps working exactly as before (services reachable on localhost).
+#
+# Dokploy is configured to build/run from docker-compose.yml directly and
+# does NOT read this file, so production stays free of host-published ports
+# (avoids clashing with Dokploy's own dashboard on port 3000, and avoids
+# bypassing Traefik/SSL). See DEPLOYMENT.md for details.
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  api:
+    ports:
+      - "4000:4000"
+
+  web:
+    ports:
+      - "3000:3000"
+
+  website:
+    ports:
+      - "3001:3001"

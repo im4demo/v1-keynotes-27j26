@@ -1,16 +1,15 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: keynotes
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-keynotes}
     volumes:
       - keynotes_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d keynotes"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-keynotes}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,45 +18,63 @@ services:
     build:
       context: .
       dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/keynotes
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/keynotes}
+      NODE_ENV: production
       PORT: "4000"
-    ports:
-      - "4000:4000"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:4000/api/notes', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    restart: unless-stopped
     environment:
       API_URL: http://api:4000
-      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
-    ports:
-      - "3000:3000"
     depends_on:
       - api
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   website:
     build:
       context: .
       dockerfile: docker/website.Dockerfile
       args:
-        NEXT_PUBLIC_WEB_URL: http://localhost:3000
+        NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
+    restart: unless-stopped
     environment:
-      NEXT_PUBLIC_WEB_URL: http://localhost:3000
+      NEXT_PUBLIC_WEB_URL: ${NEXT_PUBLIC_WEB_URL:-http://localhost:3000}
+      NODE_ENV: production
       PORT: "3001"
       HOSTNAME: 0.0.0.0
-    ports:
-      - "3001:3001"
     depends_on:
       - web
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   keynotes_pgdata:
