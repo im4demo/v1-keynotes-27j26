@@ -27,8 +27,11 @@ supports monorepos by separating two settings:
   **separate Dokploy Project** so it doesn't interfere with the working
   Compose deployment.
 - Project name: _TBD_
-- New DNS subdomains (separate from `hn-*`, to be able to compare
-  side-by-side): _TBD_
+- New DNS subdomains (confirmed resolving via Cloudflare, same as the
+  Compose setup's proxy):
+  - `hn-sep-api.sandnfun.site` → `api`
+  - `hn-sep-web.sandnfun.site` → `web`
+  - `hn-sep-website.sandnfun.site` → `website`
 
 ## Services
 
@@ -45,7 +48,7 @@ supports monorepos by separating two settings:
 - Dockerfile Path: `docker/api.Dockerfile`
 - Env vars: `DATABASE_URL` (pointing at the new `db` service),
   `NODE_ENV=production`, `PORT=4000`
-- Domain: _TBD_, container port `4000`
+- Domain: `hn-sep-api.sandnfun.site`, container port `4000`
 
 ### `web` — Application service
 - Build type: Dockerfile
@@ -55,7 +58,7 @@ supports monorepos by separating two settings:
   `NEXT_PUBLIC_API_URL` = the real public URL of this setup's `api` domain
 - Env vars: `NEXT_PUBLIC_API_URL`, `NODE_ENV=production`, `PORT=3000`,
   `HOSTNAME=0.0.0.0`
-- Domain: _TBD_, container port `3000`
+- Domain: `hn-sep-web.sandnfun.site`, container port `3000`
 
 ### `website` — Application service
 - Build type: Dockerfile
@@ -65,7 +68,7 @@ supports monorepos by separating two settings:
   `web` domain
 - Env vars: `NEXT_PUBLIC_WEB_URL`, `NODE_ENV=production`, `PORT=3001`,
   `HOSTNAME=0.0.0.0`
-- Domain: _TBD_, container port `3001`
+- Domain: `hn-sep-website.sandnfun.site`, container port `3001`
 
 ## Key differences from the Compose setup (`DEPLOYMENT.md`)
 - **Independent deploys**: each Application redeploys on its own — changing
@@ -84,19 +87,48 @@ supports monorepos by separating two settings:
   directly the same way — use Dokploy's own DB UI/connection info.
 
 ## Deployment readiness checklist (separate-apps variant)
-- [ ] Decide project name and create it in Dokploy.
-- [ ] Choose new DNS subdomains (distinct from `hn-*`) and create DNS
-      records pointing to the same Oracle VPS IP.
-- [ ] Create the `db` Database service in Dokploy; note its connection
-      details.
-- [ ] Create `api` Application service (context `.`, dockerfile
-      `docker/api.Dockerfile`); set env vars; assign domain.
-- [ ] Create `web` Application service; set env vars (build-time
-      `NEXT_PUBLIC_API_URL` pointed at the new `api` domain); assign domain.
-- [ ] Create `website` Application service; set env vars (build-time
-      `NEXT_PUBLIC_WEB_URL` pointed at the new `web` domain); assign domain.
-- [ ] Verify cross-service networking (`api` reachable from `web`).
-- [ ] Smoke test full note CRUD end-to-end on the new domains.
+- [x] Decide project name and create it in Dokploy — `KeyNote-Separate`.
+- [x] Choose new DNS subdomains (`hn-sep-*`, distinct from `hn-*`) and
+      create DNS records pointing to the same Oracle VPS IP (proxied via
+      Cloudflare, same as the Compose setup).
+- [x] Create the `db` Database service in Dokploy (`keynote-sep-db`);
+      confirmed running, internal connection URL used for `api`.
+- [x] Create `api` Application service (Build Path `.`, Docker Context
+      Path `.`, Dockerfile `docker/api.Dockerfile`); env vars set
+      (`DATABASE_URL`, `NODE_ENV`, `PORT`); domain assigned and verified
+      working (`/api/health` → `{"ok":true}`, `/api/notes` → `[]`).
+- [x] Create `web` Application service (Dockerfile `docker/web.Dockerfile`);
+      env vars + build-time argument `NEXT_PUBLIC_API_URL` set to
+      `https://hn-sep-api.sandnfun.site`; domain assigned and verified —
+      notes UI loads and correctly shows empty state from the live API.
+- [x] Create `website` Application service (Dockerfile
+      `docker/website.Dockerfile`); env vars + build-time argument
+      `NEXT_PUBLIC_WEB_URL` set to `https://hn-sep-web.sandnfun.site`;
+      domain assigned and verified — marketing page loads and its
+      "Open the app" link correctly points at `hn-sep-web`.
+- [x] Cross-service networking confirmed working out of the box — Dokploy
+      Application services on the same project were reachable from each
+      other without manual `docker network connect` steps (unlike the
+      Traefik-recovery situation in the Compose setup).
+- [ ] Smoke test full note CRUD (create/edit/delete, not just the empty-list
+      GET) end-to-end on `hn-sep-web.sandnfun.site`.
 - [ ] Compare operational experience against the Compose setup (redeploy
       speed, ease of env var management, log visibility, etc.) — this is
       the actual point of this exercise.
+
+## Field-mapping gotcha hit during setup
+Dokploy's Application build form has **two different, easy-to-confuse
+path fields** — worth documenting since it caused a failed first deploy:
+- **Build Path** (in the *Provider/Source* section): should be `.` (or
+  `/`) — the monorepo root Dokploy checks out and operates from. This is
+  **not** where you put the Dockerfile's path.
+- **Docker File** (in the *Build Type* section): the actual path to the
+  Dockerfile, e.g. `docker/api.Dockerfile`.
+- **Docker Context Path** (also in *Build Type*): `.` — same as the
+  Compose setup's `context: .`, needed so `COPY packages/*` resolves.
+
+Putting the Dockerfile's path into **Build Path** instead of **Docker
+File** caused this exact error on the first `api` deploy attempt:
+```
+/bin/sh: 1: cannot create /etc/dokploy/applications/.../code/docker/api.Dockerfile/.env: Directory nonexistent
+```
