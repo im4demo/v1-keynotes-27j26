@@ -19,4 +19,4 @@ ENV NODE_ENV=production
 # "Drizzle Studio (admin tool, auth-gated)" section in
 # DEPLOYMENT-Separate-apps.md before exposing this via a public domain.
 EXPOSE 4983
-CMD ["pnpm", "--filter", "@keynotes/db", "db:studio", "--", "--host", "0.0.0.0", "--port", "4983"]
+CMD ["pnpm", "--filter", "@keynotes/db", "exec", "drizzle-kit", "studio", "--host", "0.0.0.0", "--port", "4983"]
